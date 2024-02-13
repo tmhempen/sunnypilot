@@ -175,7 +175,10 @@ struct E2eLongStateSP @0xa5cd762cd951a455 {
   status @0 :UInt16;
 }
 
-struct CustomReserved6 @0xf98d843bfd7004a3 {
+struct SignalState @0xf98d843bfd7004a3 {
+  available @0 :Bool = false;
+  state @1 :Text = "-";
+  timeToChange @2 :Float32 = -1;
 }
 
 struct CustomReserved7 @0xb86e6369214c01c8 {
