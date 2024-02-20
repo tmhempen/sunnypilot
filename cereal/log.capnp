@@ -2292,7 +2292,7 @@ struct Event {
     driverMonitoringStateSP @110 :Custom.DriverMonitoringStateSP;
     liveMapDataSP @111 :Custom.LiveMapDataSP;
     e2eLongStateSP @112 :Custom.E2eLongStateSP;
-    customReserved6 @113 :Custom.CustomReserved6;
+    signalState @113 :Custom.SignalState;
     customReserved7 @114 :Custom.CustomReserved7;
     customReserved8 @115 :Custom.CustomReserved8;
     customReserved9 @116 :Custom.CustomReserved9;

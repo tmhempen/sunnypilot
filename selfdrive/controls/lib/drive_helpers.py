@@ -171,7 +171,7 @@ class VCruiseHelper:
         self.v_cruise_suggested = round(suggestion.suggested_speed*CV.MPH_TO_KPH) # proto is double
 
         msg = messaging.new_message('signalState')
-        msg.signalState.stateStr = STATES[suggestion.signal_status] # proto is int32
+        msg.signalState.state = STATES[suggestion.signal_status] # proto is int32
         msg.signalState.timeToChange = suggestion.time_to_change # proto is double
         self.pm.send('signalState',msg)
         

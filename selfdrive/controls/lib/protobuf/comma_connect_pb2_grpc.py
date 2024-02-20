@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from openpilot.selfdrive.controls.lib.acc_rpc import comma_connect_pb2 as comma__connect__pb2
+from openpilot.selfdrive.controls.lib.protobuf import comma_connect_pb2 as comma__connect__pb2
 
 
 class CommaConnectStub(object):
