@@ -1,10 +1,17 @@
 import math
 
-from cereal import car, log
+from cereal import car, log, custom, messaging
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.numpy_fast import clip, interp
 from openpilot.common.realtime import DT_MDL
 from openpilot.selfdrive.modeld.constants import ModelConstants
+
+# camlpilot imports
+import threading
+import time
+import os
+import grpc
+from openpilot.selfdrive.controls.lib import comma_connect_pb2, comma_connect_pb2_grpc
 
 # WARNING: this value was determined based on the model's training distribution,
 #          model predictions above this speed can be unpredictable
@@ -47,6 +54,20 @@ class VCruiseHelper:
     self.button_timers = {ButtonType.decelCruise: 0, ButtonType.accelCruise: 0}
     self.button_change_states = {btn: {"standstill": False, "enabled": False} for btn in self.button_timers}
 
+    self.v_cruise_suggested = 0
+    self.host_ip = ''
+
+    dir = os.path.dirname(os.path.abspath(__file__))
+    file_name = 'config/server.txt'
+
+    with open(os.path.join(dir,file_name), 'r') as cf:
+      self.host_ip = cf.readline().strip()
+
+    self.sm = messaging.SubMaster(['liveLocationKalman', 'liveMapDataSP', 'carState'])
+    self.pm = messaging.PubMaster(['signalState'])
+
+    threading.Thread(target=self.get_suggested_speed_and_phase, daemon=True).start()
+
   @property
   def v_cruise_initialized(self):
     return self.v_cruise_kph != V_CRUISE_UNSET
@@ -73,50 +94,95 @@ class VCruiseHelper:
     if not enabled:
       return
 
-    long_press = False
-    button_type = None
+    # long_press = False
+    # button_type = None
 
-    v_cruise_delta = 1. if is_metric else IMPERIAL_INCREMENT
-    v_cruise_delta_mltplr = 10 if is_metric else 5
+    # v_cruise_delta = 1. if is_metric else IMPERIAL_INCREMENT
+    # v_cruise_delta_mltplr = 10 if is_metric else 5
 
-    for b in CS.buttonEvents:
-      if b.type.raw in self.button_timers and not b.pressed:
-        if self.button_timers[b.type.raw] > CRUISE_LONG_PRESS:
-          return  # end long press
-        button_type = b.type.raw
-        break
-    else:
-      for k in self.button_timers.keys():
-        if self.button_timers[k] and self.button_timers[k] % CRUISE_LONG_PRESS == 0:
-          button_type = k
-          long_press = True
-          break
+    # for b in CS.buttonEvents:
+    #   if b.type.raw in self.button_timers and not b.pressed:
+    #     if self.button_timers[b.type.raw] > CRUISE_LONG_PRESS:
+    #       return  # end long press
+    #     button_type = b.type.raw
+    #     break
+    # else:
+    #   for k in self.button_timers.keys():
+    #     if self.button_timers[k] and self.button_timers[k] % CRUISE_LONG_PRESS == 0:
+    #       button_type = k
+    #       long_press = True
+    #       break
 
-    if button_type is None:
-      return
+    # if button_type is None:
+    #   return
 
-    # Don't adjust speed when pressing resume to exit standstill
-    cruise_standstill = self.button_change_states[button_type]["standstill"] or CS.cruiseState.standstill
-    if button_type == ButtonType.accelCruise and cruise_standstill:
-      return
+    # # Don't adjust speed when pressing resume to exit standstill
+    # cruise_standstill = self.button_change_states[button_type]["standstill"] or CS.cruiseState.standstill
+    # if button_type == ButtonType.accelCruise and cruise_standstill:
+    #   return
 
-    # Don't adjust speed if we've enabled since the button was depressed (some ports enable on rising edge)
-    if not self.button_change_states[button_type]["enabled"]:
-      return
+    # # Don't adjust speed if we've enabled since the button was depressed (some ports enable on rising edge)
+    # if not self.button_change_states[button_type]["enabled"]:
+    #   return
 
-    pressed_value = (1 if long_press else v_cruise_delta_mltplr) if reverse_acc else (v_cruise_delta_mltplr if long_press else 1)
-    long_press_state = not long_press if reverse_acc else long_press
-    v_cruise_delta = v_cruise_delta * pressed_value
-    if long_press_state and self.v_cruise_kph % v_cruise_delta != 0:  # partial interval
-      self.v_cruise_kph = CRUISE_NEAREST_FUNC[button_type](self.v_cruise_kph / v_cruise_delta) * v_cruise_delta
-    else:
-      self.v_cruise_kph += v_cruise_delta * CRUISE_INTERVAL_SIGN[button_type]
+    # pressed_value = (1 if long_press else v_cruise_delta_mltplr) if reverse_acc else (v_cruise_delta_mltplr if long_press else 1)
+    # long_press_state = not long_press if reverse_acc else long_press
+    # v_cruise_delta = v_cruise_delta * pressed_value
+    # if long_press_state and self.v_cruise_kph % v_cruise_delta != 0:  # partial interval
+    #   self.v_cruise_kph = CRUISE_NEAREST_FUNC[button_type](self.v_cruise_kph / v_cruise_delta) * v_cruise_delta
+    # else:
+    #   self.v_cruise_kph += v_cruise_delta * CRUISE_INTERVAL_SIGN[button_type]
 
-    # If set is pressed while overriding, clip cruise speed to minimum of vEgo
-    if CS.gasPressed and button_type in (ButtonType.decelCruise, ButtonType.setCruise):
-      self.v_cruise_kph = max(self.v_cruise_kph, CS.vEgo * CV.MS_TO_KPH)
+    # # If set is pressed while overriding, clip cruise speed to minimum of vEgo
+    # if CS.gasPressed and button_type in (ButtonType.decelCruise, ButtonType.setCruise):
+    #   self.v_cruise_kph = max(self.v_cruise_kph, CS.vEgo * CV.MS_TO_KPH)
 
-    self.v_cruise_kph = clip(round(self.v_cruise_kph, 1), V_CRUISE_MIN, V_CRUISE_MAX)
+    # self.v_cruise_kph = clip(round(self.v_cruise_kph, 1), V_CRUISE_MIN, V_CRUISE_MAX)
+
+    self.v_cruise_kph = clip(round(self.v_cruise_suggested, 1), self.v_cruise_min, V_CRUISE_MAX)
+
+  def get_suggested_speed_and_phase(self) -> None:
+    STATES = ['-', 'Green', 'Yellow', 'Red', '-'] # at end to account for -1 init
+
+    while True:
+      
+      lat,lon,bearing,street,speed = -1,-1,-1,'',-1      
+      
+      try:
+        loc = self.sm['liveLocationKalman']
+        lat,lon = loc.positionGeodetic.value[0], loc.positionGeodetic.value[1] 
+        bearing = math.degrees(loc.calibratedOrientationNED.value[2])
+
+        street = self.sm['liveMapDataSP'].getLiveMapDataSP().getCurrentRoadName
+
+        speed = self.sm['carState'].vEgo
+
+      except:
+        pass
+
+      try:
+        with grpc.insecure_channel(f'{self.host_ip}:80') as channel:
+          stub = comma_connect_pb2_grpc.CommaConnectStub(channel)
+          suggestion = stub.GetApproach(comma_connect_pb2.Vehicle(latitude=lat,
+                                                                  longitude=lon, 
+                                                                  bearing=bearing,
+                                                                  street=street, 
+                                                                  speed=speed))
+          
+          self.v_cruise_suggested = round(suggestion.suggested_speed*CV.MPH_TO_KPH) # proto is double
+      except:
+        dir = os.path.dirname(os.path.abspath(__file__))
+        file_name = 'config/status.txt'
+
+        with open(os.path.join(dir,file_name), 'a') as sf:
+          sf.write("server unavailable \n")
+
+        msg = messaging.new_message('signalState')
+        msg.signalState.state = STATES[suggestion.signal_status] # proto is int32
+        msg.signalState.timeToChange = suggestion.time_to_change # proto is double
+        self.pm.send('signalState',msg)
+        
+        time.sleep(1) 
 
   def update_button_timers(self, CS, enabled):
     # increment timer for buttons still pressed
