@@ -158,6 +158,14 @@ static void update_state(UIState *s) {
   SubMaster &sm = *(s->sm);
   UIScene &scene = s->scene;
 
+  // camlpilot
+
+  if (sm.updated("signalState")) {
+    auto signal_state = sm["signalState"].getSignalState();
+    scene.light = signal_state.getState();
+    scene.time = signal_state.getTimeToChange();
+  }
+
   if (sm.updated("liveCalibration")) {
     auto live_calib = sm["liveCalibration"].getLiveCalibration();
     auto rpy_list = live_calib.getRpyCalib();
@@ -241,7 +249,7 @@ UIState::UIState(QObject *parent) : QObject(parent) {
   sm = std::make_unique<SubMaster, const std::initializer_list<const char *>>({
     "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState", "roadCameraState",
     "pandaStates", "carParams", "driverMonitoringState", "carState", "liveLocationKalman", "driverStateV2",
-    "wideRoadCameraState", "managerState", "navInstruction", "navRoute", "uiPlan",
+    "wideRoadCameraState", "managerState", "navInstruction", "navRoute", "uiPlan", "signalState" // camlpilot
   });
 
   Params params;

@@ -147,6 +147,10 @@ typedef struct UIScene {
   float light_sensor;
   bool started, ignition, is_metric, map_on_left, longitudinal_control;
   uint64_t started_frame;
+
+  // camlpilot
+  std::string light;
+  float time_to_change;
 } UIScene;
 
 class UIState : public QObject {

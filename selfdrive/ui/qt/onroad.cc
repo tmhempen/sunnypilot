@@ -333,6 +333,9 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
 void AnnotatedCameraWidget::drawHud(QPainter &p) {
   p.save();
 
+  // camlpilot
+  UIState *s = uiState();
+
   // Header gradient
   QLinearGradient bg(0, UI_HEADER_HEIGHT - (UI_HEADER_HEIGHT / 2.5), 0, UI_HEADER_HEIGHT);
   bg.setColorAt(0, QColor::fromRgbF(0, 0, 0, 0.45));
@@ -342,6 +345,8 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
   QString speedLimitStr = (speedLimit > 1) ? QString::number(std::nearbyint(speedLimit)) : "–";
   QString speedStr = QString::number(std::nearbyint(speed));
   QString setSpeedStr = is_cruise_set ? QString::number(std::nearbyint(setSpeed)) : "–";
+  QString lightStr = QString::fromStdString(s->scene.light);
+  QString timeStr = QString::number(std::nearbyint(s->scene.time_to_change))
 
   // Draw outer box + border to contain set speed and speed limit
   const int sign_margin = 12;
@@ -366,6 +371,8 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
 
   // Draw MAX
   QColor max_color = QColor(0x80, 0xd8, 0xa6, 0xff);
+  // camlpilot
+  std::map<QString, QColor> signal_colors = {{"Green", QColor(38, 202, 98, 255)}, {"Yellow",QColor(240, 223, 64, 255)}, {"Red",QColor(203, 26, 26, 255)}};
   QColor set_speed_color = whiteColor();
   if (is_cruise_set) {
     if (status == STATUS_DISENGAGED) {
@@ -384,8 +391,13 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
     set_speed_color = QColor(0x72, 0x72, 0x72, 0xff);
   }
   p.setFont(InterFont(40, QFont::DemiBold));
-  p.setPen(max_color);
-  p.drawText(set_speed_rect.adjusted(0, 27, 0, 0), Qt::AlignTop | Qt::AlignHCenter, tr("MAX"));
+  // p.setPen(max_color);
+  // p.drawText(set_speed_rect.adjusted(0, 27, 0, 0), Qt::AlignTop | Qt::AlignHCenter, tr("MAX"));
+  
+  // camlpilot
+  p.setPen(signal_colors[lightStr]);
+  p.drawText(set_speed_rect.adjusted(0, 27, 0, 0), Qt::AlignTop | Qt::AlignHCenter, timeStr);
+  
   p.setFont(InterFont(90, QFont::Bold));
   p.setPen(set_speed_color);
   p.drawText(set_speed_rect.adjusted(0, 77, 0, 0), Qt::AlignTop | Qt::AlignHCenter, setSpeedStr);
