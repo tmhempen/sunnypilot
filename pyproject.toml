@@ -83,6 +83,7 @@ cryptography = "*"
 Cython = "*"
 future-fstrings = "*"  # for acados
 grpcio = "*"
+grpcio-tools = "*"
 hatanaka = "==2.4"
 hexdump = "*"
 Jinja2 = "*"
@@ -92,6 +93,7 @@ numpy = "*"
 onnx = ">=1.14.0"
 onnxruntime = { version = ">=1.15.1", platform = "linux", markers = "platform_machine == 'aarch64'" }
 onnxruntime-gpu = { version = ">=1.15.1", platform = "linux", markers = "platform_machine == 'x86_64'" }
+protobuf = "*"
 psutil = "*"
 pyaudio = "*"
 pycapnp = "*"

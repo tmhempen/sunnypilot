@@ -98,8 +98,8 @@ class VCruiseHelper:
     file_name = 'config/server.txt'
 
     with open(os.path.join(dir,file_name), 'r') as cf:
-    	self.host_ip = cf.readline().strip()
-
+      self.host_ip = cf.readline().strip()
+    
     self.sm = messaging.SubMaster(['liveLocationKalman', 'liveMapDataSP', 'carState'])
     self.pm = messaging.PubMaster(['signalState'])
 
@@ -143,8 +143,8 @@ class VCruiseHelper:
     
   def get_suggested_speed_and_phase(self) -> None:
     STATES = ['-', 'Green', 'Yellow', 'Red', '-'] # at end to account for -1 init
-		dir = os.path.dirname(os.path.abspath(__file__))
-		
+    dir = os.path.dirname(os.path.abspath(__file__))
+    
     while True:
       
       lat,lon,bearing,street,speed = -1,-1,-1,'',-1      
@@ -161,31 +161,31 @@ class VCruiseHelper:
       except:
         pass
 
-			try:
-	    	with grpc.insecure_channel(f'{self.host_ip}:80') as channel:
-	        stub = comma_connect_pb2_grpc.CommaConnectStub(channel)
-	        suggestion = stub.GetApproach(comma_connect_pb2.Vehicle(latitude=lat,
-	                                                                longitude=lon, 
-	                                                                bearing=bearing,
-	                                                                street=street, 
-	                                                                speed=speed))
-					log_name = 'config/log.txt'
-					with open(os.path.join(dir,log_name), 'a') as lf:
-						lf.write(f'-------SUGGESTION-------\n{suggestion}\n')
-			
-					self.v_cruise_suggested = round(suggestion.suggested_speed*CV.MPH_TO_KPH) # proto is double
-	
-					msg = messaging.new_message('signalState')
-					msg.signalState.stateStr = STATES[suggestion.signal_status] # proto is int32
-					msg.signalState.timeToChange = suggestion.time_to_change # proto is double
-					self.pm.send('signalState',msg)
+      try:
+        with grpc.insecure_channel(f'{self.host_ip}:80') as channel:
+          stub = comma_connect_pb2_grpc.CommaConnectStub(channel)
+          suggestion = stub.GetApproach(comma_connect_pb2.Vehicle(latitude=lat,
+                                                                  longitude=lon, 
+                                                                  bearing=bearing,
+                                                                  street=street, 
+                                                                  speed=speed))
+          log_name = 'config/log.txt'
+          with open(os.path.join(dir,log_name), 'a') as lf:
+            lf.write(f'-------SUGGESTION-------\n{suggestion}\n')
 
-			except:
-				status_name = 'config/status.txt'
-				with open(os.path.join(dir,status_name), 'a') as sf:
-					sf.write("Server unavailable\n")
+          self.v_cruise_suggested = round(suggestion.suggested_speed*CV.MPH_TO_KPH) # proto is double
+  
+          msg = messaging.new_message('signalState')
+          msg.signalState.stateStr = STATES[suggestion.signal_status] # proto is int32
+          msg.signalState.timeToChange = suggestion.time_to_change # proto is double
+          self.pm.send('signalState',msg)
+
+      except:
+        status_name = 'config/status.txt'
+        with open(os.path.join(dir,status_name), 'a') as sf:
+          sf.write("Server unavailable\n")
         
-			time.sleep(1) 
+      time.sleep(1) 
 
   def update_button_timers(self, CS, enabled):
     # increment timer for buttons still pressed
